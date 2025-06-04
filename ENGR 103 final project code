@@ -1,0 +1,227 @@
+#include <Adafruit_CircuitPlayground.h>
+
+const int GAME_DURATION = 15000;
+bool gameRunning = false;
+bool showIdle = true;
+unsigned long gameStartTime = 0;
+
+int countA = 0;
+int countB = 0;
+
+void setup() 
+{
+  Serial.begin(9600);
+  CircuitPlayground.begin();
+  idleMode();
+}
+
+void loop() {
+  if (!gameRunning) 
+  {
+    if (showIdle) idleMode();
+
+    // Wait for game trigger
+    if (CircuitPlayground.leftButton() || CircuitPlayground.rightButton()) {
+      showIdle = false;
+
+      // Record which button triggered the game
+      int starter = CircuitPlayground.leftButton() ? 1 : 2;
+
+      // Run startup sequence and check for false start
+      int result = startSequence(starter);
+
+      if (result == 1) 
+      {
+        Serial.println("Player A false started, Player B wins.");
+        playBlueChime();
+        for (int i = 0; i < 20; i++) blueWinPattern(75);
+        showIdle = true;
+        return;
+      } else if (result == 2) 
+      {
+        Serial.println("Player B false started, Player A wins.");
+        playGreenChime();
+        for (int i = 0; i < 20; i++) greenWinPattern(75);
+        showIdle = true;
+        return;
+      }
+
+      // No false start — start the game
+      gameStartTime = millis();
+      gameRunning = true;
+      countA = 0;
+      countB = 0;
+    }
+
+  } else {
+    // Game running: collect presses
+    if (CircuitPlayground.leftButton()) 
+    {
+      countA++;
+      delay(50);
+    }
+    if (CircuitPlayground.rightButton()) 
+    {
+      countB++;
+      delay(50);
+    }
+
+    if (millis() - gameStartTime >= GAME_DURATION) 
+    {
+      gameRunning = false;
+      showResults();
+    }
+  }
+}
+
+void idleMode() {
+  for (int i = 0; i < 10; i++) {
+    CircuitPlayground.setPixelColor(i, 255, 255, 255); // White
+  }
+}
+
+int startSequence(int starter) 
+{
+  const unsigned long sequenceDuration = 5000;
+  unsigned long startTime = millis();
+  int blinkState = 0;
+  unsigned long lastBlink = 0;
+  unsigned long blinkInterval = 250;
+  int toneIndex = 0;
+  unsigned long lastTone = 0;
+  unsigned long toneInterval = 150;
+
+  int tones[] = {440, 523, 659};
+  int numTones = sizeof(tones) / sizeof(tones[0]);
+
+  while (millis() - startTime < sequenceDuration) 
+  {
+    unsigned long now = millis();
+
+    // Check for false start from the *other* player
+    if (starter == 1 && CircuitPlayground.rightButton()) 
+    {
+      return 2;  // Player B false started
+    }
+    if (starter == 2 && CircuitPlayground.leftButton()) 
+    {
+      return 1;  // Player A false started
+    }
+
+    // Blinking red LEDs
+    if (now - lastBlink >= blinkInterval) 
+    {
+      blinkState = !blinkState;
+      lastBlink = now;
+      if (blinkState) 
+      {
+        for (int i = 0; i < 10; i++) 
+        {
+          CircuitPlayground.setPixelColor(i, 255, 0, 0);  // Red
+        }
+      } else 
+      {
+        CircuitPlayground.clearPixels();
+      }
+    }
+
+    // Play tones interleaved
+    if (toneIndex < numTones && now - lastTone >= toneInterval) 
+    {
+      CircuitPlayground.playTone(tones[toneIndex], 150);
+      lastTone = now + 200;
+      toneIndex++;
+    }
+  }
+
+  CircuitPlayground.clearPixels();  // cleanup
+  return 0;  // no false start
+}
+
+void showResults() {
+  Serial.print("Button A Presses: ");
+  Serial.println(countA);
+  Serial.print("Button B Presses: ");
+  Serial.println(countB);
+  Serial.print("Difference: ");
+  Serial.println(abs(countA - countB));
+
+  if (countA > countB) 
+  {
+    playGreenChime();
+    for (int i = 0; i < 20; i++) greenWinPattern(75);
+  } else if (countB > countA) 
+  {
+    playBlueChime();
+    for (int i = 0; i < 20; i++) blueWinPattern(75);
+  } else 
+  
+  {
+    for (int j = 0; j < 5; j++) 
+    {
+      for (int i = 0; i < 10; i++) 
+      {
+        CircuitPlayground.setPixelColor(i, 255, 0, 255); // Purple
+      }
+      delay(300);
+      CircuitPlayground.clearPixels();
+      delay(300);
+    }
+  }
+
+  showIdle = true;
+}
+
+void playGreenChime() {
+  CircuitPlayground.playTone(523, 200);
+  delay(100);
+  CircuitPlayground.playTone(659, 200);
+  delay(100);
+  CircuitPlayground.playTone(784, 300);
+}
+
+void playBlueChime() {
+  CircuitPlayground.playTone(392, 200);
+  delay(100);
+  CircuitPlayground.playTone(330, 200);
+  delay(100);
+  CircuitPlayground.playTone(262, 300);
+}
+
+void greenWinPattern(int delayTime) {
+  static int pos = 0;
+  static int direction = 1;
+
+  if (pos == 0) {
+    for (int i = 0; i < 10; i++) {
+      CircuitPlayground.setPixelColor(i, 0, 255, 0);  // Flash green
+    }
+    delay(200);
+    CircuitPlayground.clearPixels();
+    delay(100);
+  }
+
+  CircuitPlayground.setPixelColor(pos, 0, 255, 0);
+  CircuitPlayground.setPixelColor((pos + 5) % 10, 0, 255, 0);
+  delay(delayTime);
+
+  pos += direction;
+  if (pos == 4 || pos == 0) direction *= -1;
+}
+
+void blueWinPattern(int delayTime) {
+  static int index = 0;
+
+  if (index == 0) {
+    for (int i = 0; i < 10; i++) {
+      CircuitPlayground.setPixelColor(i, 0, 0, 255);  // Flash blue
+    }
+    delay(200);
+    CircuitPlayground.clearPixels();
+    delay(100);
+  }
+
+  CircuitPlayground.setPixelColor(index, 0, 0, 255);
+  delay(delayTime);
+  index = (index + 1) % 10;
+}
