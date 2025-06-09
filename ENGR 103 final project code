@@ -15,16 +15,19 @@ void setup()
   idleMode();
 }
 
-void loop() {
+void loop() 
+{
   if (!gameRunning) 
   {
     if (showIdle) idleMode();
 
     // Wait for game trigger
-    if (CircuitPlayground.leftButton() || CircuitPlayground.rightButton()) {
+    if (CircuitPlayground.leftButton() || CircuitPlayground.rightButton()) 
+    {
       showIdle = false;
 
-      // Record which button triggered the game
+      // Record which button triggered the game start.
+      // This is used for false start detection
       int starter = CircuitPlayground.leftButton() ? 1 : 2;
 
       // Run startup sequence and check for false start
@@ -53,8 +56,11 @@ void loop() {
       countB = 0;
     }
 
-  } else {
-    // Game running: collect presses
+  } 
+  else 
+  {
+    // Game running: collect the button presses
+    // Delay helps debounce the buttons and prevents multiple counts from a single press.
     if (CircuitPlayground.leftButton()) 
     {
       countA++;
@@ -74,8 +80,10 @@ void loop() {
   }
 }
 
-void idleMode() {
-  for (int i = 0; i < 10; i++) {
+void idleMode() 
+{
+  for (int i = 0; i < 10; i++) 
+  {
     CircuitPlayground.setPixelColor(i, 255, 255, 255); // White
   }
 }
@@ -84,9 +92,6 @@ int startSequence(int starter)
 {
   const unsigned long sequenceDuration = 5000;
   unsigned long startTime = millis();
-  int blinkState = 0;
-  unsigned long lastBlink = 0;
-  unsigned long blinkInterval = 250;
   int toneIndex = 0;
   unsigned long lastTone = 0;
   unsigned long toneInterval = 150;
@@ -94,42 +99,51 @@ int startSequence(int starter)
   int tones[] = {440, 523, 659};
   int numTones = sizeof(tones) / sizeof(tones[0]);
 
+  bool starterPressed = false;
+  bool otherPressed = false;
+
+  // Wait for buttons to be released after triggering the game
+  while (CircuitPlayground.leftButton() || CircuitPlayground.rightButton()) 
+  {
+    delay(10);
+  }
+
   while (millis() - startTime < sequenceDuration) 
   {
     unsigned long now = millis();
 
-    // Check for false start from the *other* player
-    if (starter == 1 && CircuitPlayground.rightButton()) 
+    // Check for false start
+    if (CircuitPlayground.leftButton()) 
     {
-      return 2;  // Player B false started
-    }
-    if (starter == 2 && CircuitPlayground.leftButton()) 
-    {
-      return 1;  // Player A false started
-    }
-
-    // Blinking red LEDs
-    if (now - lastBlink >= blinkInterval) 
-    {
-      blinkState = !blinkState;
-      lastBlink = now;
-      if (blinkState) 
+      if (starter == 1) 
       {
-        for (int i = 0; i < 10; i++) 
-        {
-          CircuitPlayground.setPixelColor(i, 255, 0, 0);  // Red
-        }
+        if (starterPressed) return 1;  // False start by Player A (pressed again)
+        starterPressed = true;
       } else 
       {
-        CircuitPlayground.clearPixels();
+        return 1;  // Player A false start (not starter)
       }
     }
+    if (CircuitPlayground.rightButton()) 
+    {
+      if (starter == 2) 
+      {
+        if (starterPressed) return 2;  // False start by Player B (pressed again)
+        starterPressed = true;
+      } else 
+      {
+        return 2;  // Player B false start (not starter)
+      }
+    }
+
+    // Comet trail LED pattern
+    cometPattern(100, 4);
 
     // Play tones interleaved
     if (toneIndex < numTones && now - lastTone >= toneInterval) 
     {
       CircuitPlayground.playTone(tones[toneIndex], 150);
-      lastTone = now + 200;
+      lastTone = now;
       toneIndex++;
     }
   }
@@ -138,7 +152,30 @@ int startSequence(int starter)
   return 0;  // no false start
 }
 
-void showResults() {
+void cometPattern(int delayTime, int tailLength) 
+{
+  static int head = 0;
+  static unsigned long lastUpdate = 0;
+  if (millis() - lastUpdate < delayTime) return;
+  lastUpdate = millis();
+
+  for (int i = 0; i < 10; i++) 
+  {
+    CircuitPlayground.setPixelColor(i, 0); // Clear
+  }
+
+  for (int i = 0; i < tailLength; i++) 
+  {
+    int pos = (head - i + 10) % 10;
+    int brightness = 255 - (i * (255 / tailLength));
+    CircuitPlayground.setPixelColor(pos, brightness, brightness / 2, 0); // Orange comet trail
+  }
+
+  head = (head + 1) % 10;
+}
+
+void showResults() 
+{
   Serial.print("Button A Presses: ");
   Serial.println(countA);
   Serial.print("Button B Presses: ");
@@ -155,7 +192,6 @@ void showResults() {
     playBlueChime();
     for (int i = 0; i < 20; i++) blueWinPattern(75);
   } else 
-  
   {
     for (int j = 0; j < 5; j++) 
     {
@@ -172,7 +208,8 @@ void showResults() {
   showIdle = true;
 }
 
-void playGreenChime() {
+void playGreenChime() 
+{
   CircuitPlayground.playTone(523, 200);
   delay(100);
   CircuitPlayground.playTone(659, 200);
@@ -180,7 +217,8 @@ void playGreenChime() {
   CircuitPlayground.playTone(784, 300);
 }
 
-void playBlueChime() {
+void playBlueChime() 
+{
   CircuitPlayground.playTone(392, 200);
   delay(100);
   CircuitPlayground.playTone(330, 200);
@@ -188,12 +226,15 @@ void playBlueChime() {
   CircuitPlayground.playTone(262, 300);
 }
 
-void greenWinPattern(int delayTime) {
+void greenWinPattern(int delayTime) 
+{
   static int pos = 0;
   static int direction = 1;
 
-  if (pos == 0) {
-    for (int i = 0; i < 10; i++) {
+  if (pos == 0) 
+  {
+    for (int i = 0; i < 10; i++) 
+    {
       CircuitPlayground.setPixelColor(i, 0, 255, 0);  // Flash green
     }
     delay(200);
@@ -209,11 +250,14 @@ void greenWinPattern(int delayTime) {
   if (pos == 4 || pos == 0) direction *= -1;
 }
 
-void blueWinPattern(int delayTime) {
+void blueWinPattern(int delayTime) 
+{
   static int index = 0;
 
-  if (index == 0) {
-    for (int i = 0; i < 10; i++) {
+  if (index == 0) 
+  {
+    for (int i = 0; i < 10; i++) 
+    {
       CircuitPlayground.setPixelColor(i, 0, 0, 255);  // Flash blue
     }
     delay(200);
