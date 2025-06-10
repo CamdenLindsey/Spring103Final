@@ -40,7 +40,8 @@ void loop()
         for (int i = 0; i < 20; i++) blueWinPattern(75);
         showIdle = true;
         return;
-      } else if (result == 2) 
+      } 
+      else if (result == 2) 
       {
         Serial.println("Player B false started, Player A wins.");
         playGreenChime();
