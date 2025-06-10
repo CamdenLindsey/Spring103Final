@@ -100,7 +100,6 @@ int startSequence(int starter)
   int numTones = sizeof(tones) / sizeof(tones[0]);
 
   bool starterPressed = false;
-  bool otherPressed = false;
 
   // Wait for buttons to be released after triggering the game
   while (CircuitPlayground.leftButton() || CircuitPlayground.rightButton()) 
