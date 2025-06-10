@@ -96,6 +96,9 @@ int startSequence(int starter)
   unsigned long lastTone = 0;
   unsigned long toneInterval = 150;
 
+  //These variables help control: How long the countdown lasts, when tones play, 
+  //Which tones to play, and whether anyone pressed too early
+
   int tones[] = {440, 523, 659};
   int numTones = sizeof(tones) / sizeof(tones[0]);
 
@@ -186,17 +189,19 @@ void showResults()
   {
     playGreenChime();
     for (int i = 0; i < 20; i++) greenWinPattern(75);
-  } else if (countB > countA) 
+  } 
+  else if (countB > countA) 
   {
     playBlueChime();
     for (int i = 0; i < 20; i++) blueWinPattern(75);
-  } else 
+  } 
+  else 
   {
     for (int j = 0; j < 5; j++) 
     {
       for (int i = 0; i < 10; i++) 
       {
-        CircuitPlayground.setPixelColor(i, 255, 0, 255); // Purple
+        CircuitPlayground.setPixelColor(i, 255, 0, 255); // This is a purple pattern for when the game results in tie
       }
       delay(300);
       CircuitPlayground.clearPixels();
